@@ -12,7 +12,9 @@ generation:
   # Deterministic-ish, identical across experiments for comparability.
   do_sample: false
   temperature: null
-  max_new_tokens: 512
+  # 256 is ample for our short answers (labels, numbers, JSON, one-line SOP
+  # answers) and caps worst-case eval time on a T4.
+  max_new_tokens: 256
   num_beams: 1
 
 evaluation:
