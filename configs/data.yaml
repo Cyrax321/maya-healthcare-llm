@@ -1,0 +1,58 @@
+# Data preparation configuration.
+#
+# Maya handles NON-CLINICAL hospital operations only. No diagnosis, treatment,
+# prescription, triage or autonomous clinical decision-making. No identifiable
+# patient records.
+
+scope:
+  allowed_categories:
+    - appointment_scheduling
+    - bed_occupancy
+    - workforce_rostering
+    - or_scheduling
+    - equipment_maintenance
+    - inventory_supply
+    - billing_finance
+    - sop_policy_qa
+    - department_reporting
+    - workflow_tool_use
+  excluded_categories:
+    - diagnosis
+    - treatment
+    - prescription
+    - triage
+    - clinical_decision_making
+    - identifiable_patient_records
+
+synthetic:
+  # Deterministic generator. Ground truth for arithmetic and structured
+  # operational calculations is produced by the same deterministic programs that
+  # emit the questions, so answers are exact by construction.
+  seed: 20241015
+  train_examples_per_category: 400
+  validation_examples_per_category: 60
+  test_examples_per_category: 60
+  # Variations of one underlying scenario must stay in one partition.
+  split_by_scenario: true
+
+splits:
+  train_ratio: 0.8
+  validation_ratio: 0.1
+  test_ratio: 0.1
+  seed: 20241015
+  # Final test set is locked and never used for tuning or checkpoint selection.
+
+dedup:
+  exact_hash: true
+  near_dup_minhash: true
+  near_dup_shingles: 3
+  near_dup_jaccard_threshold: 0.9
+
+audit:
+  min_example_length: 20
+  require_answer_or_label_or_tool: true
+  report_malformed: true
+
+output:
+  processed_dir: "data/processed"
+  manifest_path: "data/source_manifest.json"

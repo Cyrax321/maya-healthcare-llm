@@ -1,0 +1,34 @@
+# Evaluation configuration. Locked held-out test set, identical across
+# experiments E0..E4. Generation settings are identical for all conditions.
+
+experiments:
+  E0: { name: "baseline", model: "base", retrieval: false, tools: false }
+  E1: { name: "finetuned", model: "adapter", retrieval: false, tools: false }
+  E2: { name: "finetuned_retrieval", model: "adapter", retrieval: true, tools: false }
+  E3: { name: "finetuned_retrieval_tools", model: "adapter", retrieval: true, tools: true }
+  E4: { name: "qwen3_5_4b_control", model: "qwen3_5_4b", retrieval: false, tools: false, optional: true }
+
+generation:
+  # Deterministic-ish, identical across experiments for comparability.
+  do_sample: false
+  temperature: null
+  max_new_tokens: 512
+  num_beams: 1
+
+evaluation:
+  heldout_split: "test"
+  # Metrics are computed per task type only where their ground truth applies.
+  # Never fabricate: if a task lacks labels/scores, omit that figure.
+
+statistics:
+  n_bootstrap: 2000
+  confidence_level: 0.95
+  paired_test: "mcnemar"       # for paired binary correctness where applicable
+  random_seed: 20241015
+
+retrieval:
+  k_values: [1, 3, 5]
+
+reporting:
+  export_png: true
+  export_svg: true

@@ -1,0 +1,52 @@
+# Maya base model configuration.
+# All values below were read from the real model card and config files, not
+# invented. Source: https://huggingface.co/empero-ai/Qwen3.8-4B-Distill
+
+model:
+  # Exact repository id. Do not change silently.
+  repo_id: "empero-ai/Qwen3.8-4B-Distill"
+  # The model card's own quickstart snippet references "empero-ai/Qwen3.8-4B"
+  # without the "-Distill" suffix. That is a documented inconsistency in the
+  # card; the actual published repository is the -Distill id above.
+  revision: null              # resolved at load time and recorded to config.json
+  base_model: "Qwen/Qwen3.5-4B"
+  license: "apache-2.0"
+  architecture: "Qwen3_5ForConditionalGeneration"
+  model_type: "qwen3_5"
+  parameters: "4B (text path of a unified vision-language base)"
+  dtype: "bfloat16"
+  context_length: 262144
+  tokenizer_class: "Qwen2Tokenizer"
+
+tokenizer:
+  chat_template: "qwen3.5"     # jinja template shipped in tokenizer_config.json
+  eos_token: "<|im_end|>"
+  pad_token: "<|endoftext|>"
+  eos_token_ids: [248046, 248044]
+  pad_token_id: 248044
+  # Reasoning-format special tokens (NOT hidden from supervision by default;
+  # we train to emit an accurate answer and do not force chain-of-thought).
+  think_token: " thinking"
+  response_token: " response"
+  tool_call_open: "<tool_call>"
+  tool_call_close: "</tool_call>"
+  tool_response_open: "<tool_response>"
+  tool_response_close: "</tool_response>"
+
+generation:
+  # Qwen3.5 recommended sampling from the model card.
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  do_sample: true
+  max_new_tokens: 16384
+  # Evaluation uses a separate deterministic protocol (see evaluation.yaml).
+
+unsloth:
+  # Qwen3.5 requires transformers v5. Unsloth uses v5 by default outside Colab.
+  transformers_v5_required: true
+  # QLoRA (4-bit) is NOT recommended for Qwen3.5: quantization differences are
+  # larger than normal. Prefer bf16 LoRA (load_in_16bit=True).
+  qlora_not_recommended: true
+  # bf16 LoRA for the 4B model fits in ~10GB VRAM (Unsloth doc figure).
+  bf16_lora_vram_4b_gb: 10
