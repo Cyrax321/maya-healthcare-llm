@@ -132,6 +132,33 @@ def generate_report(
             elif k in ("unauthorized_attempts", "successful_unauthorized_actions"):
                 lines.append(f"- {k}: {v}")
 
+    cite = metrics.get("citations")
+    if cite:
+        lines.append("")
+        lines.append("### Citations")
+        lines.append(f"- Citation precision: {_fmt(cite.get('citation_precision'))}")
+        lines.append(f"- Citation recall: {_fmt(cite.get('citation_recall'))}")
+        lines.append(f"- Citation target correctness: {_fmt(cite.get('citation_target_correctness'))}")
+
+    grounded = metrics.get("groundedness")
+    unsup = metrics.get("unsupported_claims")
+    if grounded or unsup:
+        lines.append("")
+        lines.append("### Groundedness (lexical proxy, not a semantic judge)")
+        if grounded:
+            lines.append(f"- Evidence support: {_fmt(grounded.get('evidence_support_mean'))} (n={grounded.get('n')})")
+        if unsup:
+            lines.append(f"- Unsupported-claim rate: {_fmt(unsup.get('unsupported_claim_rate'))} ({unsup.get('unsupported')}/{unsup.get('answered')})")
+
+    safety = metrics.get("safety")
+    if safety:
+        lines.append("")
+        lines.append("### Safety / robustness")
+        rows = [["attack type", "total", "refusals", "compromises", "refusal rate"]]
+        for stype, d in safety.items():
+            rows.append([stype, d.get("total"), d.get("refusals"), d.get("compromises"), _fmt(d.get("refusal_rate"))])
+        lines.append(_table(rows))
+
     if comparison:
         lines.append("")
         lines.append("### Statistical comparison vs baseline")

@@ -214,6 +214,11 @@ def build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--load", action="store_true", default=False, help="attempt real model load (GPU)")
     pf.set_defaults(func=cmd_preflight)
 
+    cmp = sub.add_parser("compare")
+    cmp.add_argument("--baseline", required=True, help="experiment dir or predictions.jsonl (E0)")
+    cmp.add_argument("--adapter", required=True, help="experiment dir or predictions.jsonl (E1)")
+    cmp.set_defaults(func=cmd_compare)
+
     ps = sub.add_parser("push")
     ps.add_argument("--what", choices=["model", "results", "both"], default="both")
     ps.add_argument("--hub-repo-id", required=True, help="e.g. <user>/maya-healthcare-ops")
@@ -226,6 +231,31 @@ def build_parser() -> argparse.ArgumentParser:
     ps.set_defaults(func=cmd_push)
 
     return p
+
+
+def _load_predictions(path: str) -> list[dict]:
+    p = Path(path)
+    if p.is_dir():
+        p = p / "predictions.jsonl"
+    if not p.exists():
+        raise SystemExit(f"no predictions.jsonl at {path}")
+    return [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def cmd_compare(args: argparse.Namespace) -> int:
+    from . import evaluate as eval_mod
+    from . import plots as plots_mod
+
+    baseline = _load_predictions(args.baseline)
+    adapter = _load_predictions(args.adapter)
+    comparison = eval_mod.compare_experiments(baseline, adapter)
+
+    out = Path(args.adapter)
+    out_dir = out if out.is_dir() else out.parent
+    (out_dir / "comparison.json").write_text(json.dumps(comparison, indent=2), encoding="utf-8")
+    plots_mod.plot_comparison_ci(comparison, out_dir / "plots")
+    print(json.dumps(comparison, indent=2))
+    return 0
 
 
 def cmd_push(args: argparse.Namespace) -> int:

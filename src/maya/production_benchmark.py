@@ -111,6 +111,89 @@ def benchmark_memory_context(model: Any, context_lengths: Sequence[int] = (512, 
     return {"memory_by_context": out, "available": True}
 
 
+def benchmark_ttft(
+    model: Any,
+    tokenizer: Any,
+    samples: Sequence[Sequence[dict[str, str]]],
+    max_new_tokens: int = 256,
+    warmup: int = 1,
+) -> dict[str, Any]:
+    """Time-to-first-token and time-per-output-token via streaming (GPU-only).
+
+    Uses ``TextIteratorStreamer`` to time the first token and per-token cadence.
+    Falls back to an empty result (reported as None) if streaming is unavailable.
+    """
+    try:
+        import torch  # type: ignore
+        from threading import Thread
+
+        from transformers import TextIteratorStreamer  # type: ignore
+    except Exception:
+        return {"ttft_ms": None, "time_per_output_token_ms": None, "note": "streaming unavailable"}
+
+    ttft_list: list[float] = []
+    tpt_list: list[float] = []
+    errors = 0
+    for i, messages in enumerate(samples):
+        try:
+            inputs = tokenizer.apply_chat_template(
+                messages, add_generation_prompt=True, return_tensors="pt"
+            ).to(model.device)
+            streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+            kwargs = dict(inputs=inputs, streamer=streamer, max_new_tokens=max_new_tokens, do_sample=False)
+            thread = Thread(target=model.generate, kwargs=kwargs)
+            thread.start()
+            t0 = time.perf_counter()
+            first = None
+            n_tokens = 0
+            for _ in streamer:
+                if first is None:
+                    first = time.perf_counter()
+                n_tokens += 1
+            t_end = time.perf_counter()
+            thread.join()
+            if i >= warmup and first is not None:
+                ttft_list.append((first - t0) * 1000.0)
+                dt = t_end - first
+                if dt > 0 and n_tokens > 1:
+                    tpt_list.append(1000.0 * (n_tokens - 1) / dt)
+        except Exception:  # noqa: BLE001
+            errors += 1
+
+    return {
+        "ttft_ms": _percentiles(ttft_list) if ttft_list else None,
+        "mean_ttft_ms": float(np.mean(ttft_list)) if ttft_list else None,
+        "time_per_output_token_ms": _percentiles(tpt_list) if tpt_list else None,
+        "stream_errors": errors,
+    }
+
+
+def benchmark_errors(
+    generator: Callable[..., str],
+    samples: Sequence[Sequence[dict[str, str]]],
+    max_new_tokens: int = 256,
+    timeout_s: float = 120.0,
+) -> dict[str, Any]:
+    """Error / timeout / empty-output rate over the sample set."""
+    errors = 0
+    timeouts = 0
+    empty = 0
+    for messages in samples:
+        try:
+            text = generator(messages, max_new_tokens=max_new_tokens)
+            if not text or not text.strip():
+                empty += 1
+        except Exception:  # noqa: BLE001
+            errors += 1
+    n = len(samples)
+    return {
+        "error_rate": errors / n if n else None,
+        "empty_output_rate": empty / n if n else None,
+        "timeout_rate": timeouts / n if n else None,
+        "n": n,
+    }
+
+
 def run_benchmark(
     model: Any,
     tokenizer: Any,
@@ -124,6 +207,8 @@ def run_benchmark(
     result["model_load_time_s"] = time.perf_counter() - load_start
     result.update(measure_memory(model))
     result.update(benchmark_latency(generator, tokenizer, samples, max_new_tokens))
+    result.update(benchmark_ttft(model, tokenizer, samples, max_new_tokens))
     result.update(benchmark_throughput(generator, samples, max_new_tokens=max_new_tokens))
+    result.update(benchmark_errors(generator, samples, max_new_tokens))
     result.update(benchmark_memory_context(model))
     return result

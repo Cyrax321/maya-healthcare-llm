@@ -216,7 +216,11 @@ def run_training(
         args=args,
     )
 
+    import time
+
+    t_start = time.perf_counter()
     trainer.train()
+    duration_s = time.perf_counter() - t_start
 
     final_ckpt = None
     if tcfg.get("save_adapter", True):
@@ -224,7 +228,13 @@ def run_training(
         tokenizer.save_pretrained(output_dir)
         final_ckpt = output_dir
 
-    _write_training_log(output_dir, trainer.state.log_history, trainer.state.global_step)
+    _write_training_log(
+        output_dir,
+        trainer.state.log_history,
+        trainer.state.global_step,
+        duration_s=duration_s,
+        best_checkpoint=getattr(trainer.state, "best_model_checkpoint", None),
+    )
 
     return TrainingResult(
         output_dir=output_dir,
@@ -234,11 +244,19 @@ def run_training(
     )
 
 
-def _write_training_log(output_dir: str, log_history: list[dict[str, Any]], global_step: int) -> None:
-    """Persist a normalized training log (loss/lr/grad-norm per step) to JSON."""
+def _write_training_log(
+    output_dir: str,
+    log_history: list[dict[str, Any]],
+    global_step: int,
+    duration_s: float | None = None,
+    best_checkpoint: str | None = None,
+) -> None:
+    """Persist a normalized training log (loss/lr/grad-norm per step, duration,
+    throughput and peak memory) to JSON."""
     from pathlib import Path
 
     steps = []
+    runtime = throughput = samples_per_sec = None
     for entry in log_history:
         if "loss" in entry or "eval_loss" in entry:
             steps.append(
@@ -250,9 +268,21 @@ def _write_training_log(output_dir: str, log_history: list[dict[str, Any]], glob
                     "grad_norm": entry.get("grad_norm"),
                 }
             )
+        # TRL writes throughput/runtime in the final log entry
+        runtime = runtime or entry.get("train_runtime")
+        samples_per_sec = samples_per_sec or entry.get("train_samples_per_second")
+        throughput = entry.get("train_steps_per_second") or throughput
+
+    memory = _gpu_memory_gb()
+
     log = {
         "final_step": global_step,
-        "best_checkpoint": None,
+        "duration_s": round(duration_s, 2) if duration_s is not None else None,
+        "train_runtime_s": runtime,
+        "samples_per_second": samples_per_sec,
+        "steps_per_second": throughput,
+        "gpu_memory_gb": memory,
+        "best_checkpoint": best_checkpoint,
         "steps": steps,
     }
     out = Path(output_dir).parent / "training_log.json"
@@ -260,6 +290,20 @@ def _write_training_log(output_dir: str, log_history: list[dict[str, Any]], glob
     import json
 
     out.write_text(json.dumps(log, indent=2), encoding="utf-8")
+
+
+def _gpu_memory_gb() -> dict[str, Any] | None:
+    try:
+        import torch  # type: ignore
+
+        if torch.cuda.is_available():
+            return {
+                "peak_allocated": round(torch.cuda.max_memory_allocated() / (1024**3), 2),
+                "peak_reserved": round(torch.cuda.max_memory_reserved() / (1024**3), 2),
+            }
+    except Exception:
+        pass
+    return None
 
 
 def _to_hf_dataset(data: dict[str, list[str]]) -> Any:

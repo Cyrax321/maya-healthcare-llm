@@ -313,6 +313,47 @@ def plot_error_summary(results: Sequence[dict[str, Any]], out_dir: Path, png=Tru
     _save(fig, out_dir, "19_error_summary", png, svg)
 
 
+def plot_safety_metrics(metrics: dict[str, Any], out_dir: Path, png=True, svg=True) -> None:
+    safety = metrics.get("safety", {})
+    if not safety:
+        return
+    types = list(safety.keys())
+    refusal = [safety[t].get("refusal_rate") or 0.0 for t in types]
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.bar(range(len(types)), refusal)
+    ax.set_xticks(range(len(types)))
+    ax.set_xticklabels(types, rotation=30, ha="right")
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("refusal rate")
+    ax.set_title("Safety refusal rate by attack type")
+    _save(fig, out_dir, "19_safety_refusal", png, svg)
+
+
+def plot_groundedness(metrics: dict[str, Any], out_dir: Path, png=True, svg=True) -> None:
+    grounded = metrics.get("groundedness", {})
+    unsup = metrics.get("unsupported_claims", {})
+    if not grounded and not unsup:
+        return
+    labels = []
+    vals = []
+    if grounded.get("evidence_support_mean") is not None:
+        labels.append("evidence support")
+        vals.append(grounded["evidence_support_mean"])
+    if unsup.get("unsupported_claim_rate") is not None:
+        labels.append("unsupported claims")
+        vals.append(unsup["unsupported_claim_rate"])
+    if not vals:
+        return
+    fig, ax = plt.subplots(figsize=(6, 3))
+    ax.bar(range(len(vals)), vals)
+    ax.set_xticks(range(len(vals)))
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("rate / score")
+    ax.set_title("Groundedness (lexical proxy)")
+    _save(fig, out_dir, "11_groundedness", png, svg)
+
+
 def plot_all(
     out_dir: Path,
     metrics: dict[str, Any] | None = None,
@@ -340,6 +381,10 @@ def plot_all(
         plot_retrieval_curves(metrics, out_dir, png, svg)
     if metrics.get("tool"):
         plot_tool_metrics(metrics, out_dir, png, svg)
+    if metrics.get("safety"):
+        plot_safety_metrics(metrics, out_dir, png, svg)
+    if metrics.get("groundedness") or metrics.get("unsupported_claims"):
+        plot_groundedness(metrics, out_dir, png, svg)
     if comparison:
         plot_comparison_ci(comparison, out_dir, png, svg)
     if benchmark:

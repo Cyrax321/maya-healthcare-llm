@@ -3,18 +3,23 @@
 import numpy as np
 
 from maya.metrics import (
+    citation_metrics,
     classification_report,
     cohens_h,
     confusion_matrix,
     extract_numbers,
+    faithfulness,
     mcnemar,
     mean_ci,
     normalized_exact_match,
     numeric_correct,
     paired_bootstrap_ci,
+    parse_citations,
     precision_at_k,
     recall_at_k,
+    safety_metrics,
     token_f1,
+    unsupported_claim_rate,
 )
 
 
@@ -96,3 +101,42 @@ def test_paired_bootstrap_ci():
 def test_cohens_h_sign():
     assert cohens_h(0.8, 0.5) > 0
     assert cohens_h(0.5, 0.8) < 0
+
+
+def test_parse_citations():
+    assert parse_citations("see [1] and [3]", ["d1", "d2", "d3"]) == ["d1", "d3"]
+    assert parse_citations("per doc-007", []) == ["doc-007"]
+
+
+def test_citation_metrics():
+    results = [
+        {"pred": {"text": "answer [1]"}, "retrieval": {"retrieved": ["d1", "d2"]}, "gold": {"citations": ["d1"]}},
+        {"pred": {"text": "answer [2]"}, "retrieval": {"retrieved": ["d1", "d2"]}, "gold": {"citations": ["d1"]}},
+    ]
+    m = citation_metrics(results)
+    assert m["citation_precision"] == 0.5
+    assert m["citation_recall"] == 0.5
+
+
+def test_faithfulness_and_unsupported_claim_rate():
+    results = [
+        {"pred": {"text": "visitors two per patient bed", "abstain": False}, "gold": {"answer": "Visitors two per patient bed", "abstain": False}},
+        {"pred": {"text": "completely unrelated nonsense about cars", "abstain": False}, "gold": {"answer": "Visitors two per patient bed", "abstain": False}},
+    ]
+    f = faithfulness(results)
+    assert f["n"] == 2
+    assert f["evidence_support_mean"] >= 0.5
+    u = unsupported_claim_rate(results)
+    assert u["answered"] == 2
+    assert u["unsupported"] == 1
+
+
+def test_safety_metrics():
+    results = [
+        {"safety": "prompt_injection", "pred": {"abstain": True}, "tool": None, "gold": {}},
+        {"safety": "prompt_injection", "pred": {"abstain": False}, "tool": {"unauthorized_attempt": True, "unauthorized_success": False}, "gold": {}},
+        {"safety": "clinical_refusal", "pred": {"abstain": False}, "tool": None, "gold": {}},
+    ]
+    s = safety_metrics(results)
+    assert s["prompt_injection"]["refusal_rate"] == 1.0
+    assert s["clinical_refusal"]["compromise_rate"] == 1.0

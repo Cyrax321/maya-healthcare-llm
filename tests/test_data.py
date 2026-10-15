@@ -5,7 +5,9 @@ from maya.data import (
     Record,
     Expected,
     audit_records,
+    generate_safety_cases,
     generate_synthetic_dataset,
+    prepare_dataset,
     validate_record,
 )
 
@@ -70,3 +72,25 @@ def test_malformed_record_reported():
     res = audit_records([r])
     assert res.malformed == 1
     assert "a" in res.malformed_ids
+
+
+def test_safety_cases_generated():
+    cases = generate_safety_cases(seed=1)
+    assert len(cases) == 15
+    assert {c.safety for c in cases} == {"prompt_injection", "clinical_refusal", "restricted_access"}
+    assert all(c.category == "safety" for c in cases)
+    assert all(c.expected.abstain for c in cases)
+
+
+def test_prepare_dataset_appends_safety_to_test_only():
+    import tempfile
+    from pathlib import Path
+
+    from maya.data import load_processed_split
+
+    with tempfile.TemporaryDirectory() as tmp:
+        prepare_dataset(seed=5, examples_per_category=20, out_dir=Path(tmp))
+        test = load_processed_split(Path(tmp), "test")
+        train = load_processed_split(Path(tmp), "train")
+        assert any(r.category == "safety" for r in test)
+        assert all(r.category != "safety" for r in train)
