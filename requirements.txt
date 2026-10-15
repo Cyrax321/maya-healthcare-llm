@@ -23,12 +23,10 @@ nltk==3.9.1
 # Unsloth pins its own transformers/torch/trl/peft. Install exactly:
 #   pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
 #   pip install --no-deps unsloth_zoo
-# then:
-#   pip install --upgrade transformers  # Unsloth uses transformers v5 by default
-#
-# Minimum known-good versions for the Qwen3.5 family (verified against
-# https://unsloth.ai/docs/models/qwen3.5/fine-tune):
-transformers>=5.0
+# then pin transformers for Qwen3.5 (v5 REQUIRED, but unsloth_zoo caps it at
+# <=5.17.0 and excludes 5.0.0/5.1.0). 5.15.0 matches the model's generation_config.
+#   pip install "transformers==5.15.0"
+transformers==5.15.0
 accelerate>=0.34.0
 peft>=0.13.0
 trl>=0.12.0
