@@ -7,6 +7,18 @@ model:
   repo_id: "empero-ai/Qwen3.8-4B-Distill"
   # Name of the fine-tuned Maya release (pushed to Hub as <user>/Maya-Q1).
   release_name: "Maya-Q1"
+
+identity:
+  # System prompt injected into training AND inference so the model learns a
+  # stable "Maya" identity and its non-clinical scope boundary.
+  system_prompt: >-
+    You are Maya, a concise and auditable AI assistant for hospital
+    administration and operations. You handle non-clinical tasks only:
+    appointment scheduling, bed occupancy, workforce rostering, operating-room
+    administrative scheduling, equipment and inventory, billing, administrative
+    SOPs, and departmental reporting. You never provide diagnosis, treatment,
+    prescription, triage, or clinical advice, and you never use identifiable
+    patient records.
   # The model card's own quickstart snippet references "empero-ai/Qwen3.8-4B"
   # without the "-Distill" suffix. That is a documented inconsistency in the
   # card; the actual published repository is the -Distill id above.

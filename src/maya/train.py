@@ -152,9 +152,12 @@ def run_training(
     from trl import SFTConfig, SFTTrainer  # type: ignore
     from unsloth import FastLanguageModel  # type: ignore
 
+    from .config import get_system_prompt
+
     tcfg = config["training_t4"]["training"]
     lcfg = config["training_t4"]["lora"]
     prec = config["training_t4"]["precision"]
+    system_prompt = get_system_prompt(config)
 
     load_in_4bit = prec.get("preferred") != "fp16_lora"
     model, tokenizer = FastLanguageModel.from_pretrained(
@@ -176,8 +179,8 @@ def run_training(
         max_seq_length=tcfg["max_seq_length"],
     )
 
-    train_ds = _to_hf_dataset(prepare_training_dataset(train_records, tokenizer))
-    val_ds = _to_hf_dataset(prepare_training_dataset(val_records, tokenizer))
+    train_ds = _to_hf_dataset(prepare_training_dataset(train_records, tokenizer, system_prompt))
+    val_ds = _to_hf_dataset(prepare_training_dataset(val_records, tokenizer, system_prompt))
 
     args = SFTConfig(
         max_seq_length=tcfg["max_seq_length"],

@@ -64,23 +64,25 @@ def _run_example(
     generator: Callable[..., str],
     retrieval: BM25Retriever | None,
     tools_enabled: bool,
+    system_prompt: str | None = None,
 ) -> dict[str, Any]:
     labels = CATEGORY_LABELS.get(record.category)
 
     messages: list[dict[str, str]] = [dict(m) for m in record.messages]
     query = " ".join(m.get("content", "") for m in record.messages if m.get("role") == "user")
 
+    # Build a single system message (identity + optional retrieval context); the
+    # Qwen3.5 chat template permits only one system message at the front.
+    system_parts: list[str] = []
     retrieved: list[str] = []
     if retrieval is not None:
         retrieved, context = retrieval_context(retrieval, query, k=3)
         if context:
-            messages.insert(
-                0,
-                {
-                    "role": "system",
-                    "content": f"Use only the following approved sources to answer.\n\n{context}",
-                },
-            )
+            system_parts.append("Use only the following approved sources to answer.\n\n" + context)
+    if system_prompt:
+        system_parts.insert(0, system_prompt)
+    if system_parts:
+        messages.insert(0, {"role": "system", "content": "\n\n".join(system_parts)})
 
     text = generator(messages)
     pred = build_pred(text, labels=labels)
@@ -273,10 +275,14 @@ def evaluate(
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "plots").mkdir(exist_ok=True)
 
+    from .config import get_system_prompt  # local import to avoid cycle
+
+    system_prompt = get_system_prompt(config)
+
     recs = list(records[:max_examples] if max_examples else records)
     results: list[dict[str, Any]] = []
     for r in recs:
-        res = _run_example(r, generator, retrieval, tools_enabled)
+        res = _run_example(r, generator, retrieval, tools_enabled, system_prompt)
         res["correctness"] = _correctness(res)
         res["errors"] = _categorize_errors(res, res["correctness"])
         results.append(res)

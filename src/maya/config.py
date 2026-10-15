@@ -172,3 +172,11 @@ def write_experiment_config(
 def artifact_path(experiment_id: str, name: str) -> Path:
     """Return the path to a named artifact for an experiment."""
     return ARTIFACTS_DIR / experiment_id / name
+
+
+def get_system_prompt(configs: dict[str, Any]) -> str | None:
+    """Read the Maya identity system prompt from config, if configured."""
+    try:
+        return configs["model"]["model"]["identity"]["system_prompt"]
+    except (KeyError, TypeError):
+        return None
