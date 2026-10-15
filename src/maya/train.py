@@ -435,14 +435,24 @@ def run_training_transformers(
             repo_id, torch_dtype=torch.bfloat16, device_map="auto"
         )
 
-    peft_config = LoraConfig(
-        r=lcfg["r"],
-        lora_alpha=lcfg["lora_alpha"],
-        lora_dropout=lcfg["lora_dropout"],
-        bias=lcfg["bias"],
-        task_type="CAUSAL_LM",
-        target_modules="all-linear",
-    )
+    peft_kwargs: dict[str, Any] = {
+        "r": lcfg["r"],
+        "lora_alpha": lcfg["lora_alpha"],
+        "lora_dropout": lcfg["lora_dropout"],
+        "bias": lcfg["bias"],
+        "task_type": "CAUSAL_LM",
+        "target_modules": "all-linear",
+    }
+    # Force the LoRA adapters to fp16 so they match the fp16 GradScaler on a T4.
+    # The checkpoint's text_config.dtype is bfloat16, which would otherwise make
+    # get_peft_model build bf16 adapters -> GradScaler raises NotImplementedError.
+    try:
+        peft_kwargs["lora_dtype"] = torch.float16
+        peft_config = LoraConfig(**peft_kwargs)
+    except TypeError:
+        model.config.torch_dtype = torch.float16
+        peft_kwargs.pop("lora_dtype", None)
+        peft_config = LoraConfig(**peft_kwargs)
     model = get_peft_model(model, peft_config)
 
     train_ds = _to_hf_dataset(prepare_training_dataset(train_records, tokenizer, system_prompt))
