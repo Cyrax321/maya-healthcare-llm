@@ -1,0 +1,106 @@
+{
+  "schema_version": "1",
+  "notes": "Example manifest. Copy to source_manifest.json and fill before ingesting any real dataset. Public visibility does NOT imply permission to train.",
+  "sources": [
+    {
+      "id": "hhs-hospital-dashboard",
+      "repository": "HHS-Official/hospital-dashboard",
+      "url": "https://huggingface.co/datasets/HHS-Official/hospital-dashboard",
+      "license": "public-domain (US federal works)",
+      "permitted_use": "non-clinical capacity/reporting reference",
+      "synthetic": false,
+      "deidentified": true,
+      "relevance": "department reporting, capacity",
+      "rows": null,
+      "columns": null,
+      "split": null,
+      "file_hash": null,
+      "processing": null,
+      "commercial_ok": true,
+      "redistribute_derivative_ok": true,
+      "status": "candidate"
+    },
+    {
+      "id": "cms-hospital-prices",
+      "repository": "kevykibbz/hospitals",
+      "url": "https://huggingface.co/datasets/kevykibbz/hospitals",
+      "license": "CMS public data",
+      "permitted_use": "billing administration reference",
+      "synthetic": false,
+      "deidentified": true,
+      "relevance": "billing_finance",
+      "rows": null,
+      "columns": null,
+      "split": null,
+      "file_hash": null,
+      "processing": null,
+      "commercial_ok": true,
+      "redistribute_derivative_ok": true,
+      "status": "candidate"
+    },
+    {
+      "id": "hospital-financial-reasoning",
+      "repository": "NexusAI123/hospital-financial-reasoning",
+      "url": "https://huggingface.co/datasets/NexusAI123/hospital-financial-reasoning",
+      "license": "MIT",
+      "permitted_use": "finance/budget reasoning",
+      "synthetic": false,
+      "deidentified": true,
+      "relevance": "billing_finance, department_reporting",
+      "rows": null,
+      "columns": null,
+      "split": null,
+      "file_hash": null,
+      "processing": null,
+      "commercial_ok": true,
+      "redistribute_derivative_ok": true,
+      "status": "candidate"
+    },
+    {
+      "id": "japan-hospital-master",
+      "repository": "japan-opendata/japan-healthcare-hospital-master",
+      "url": "https://huggingface.co/datasets/japan-opendata/japan-healthcare-hospital-master",
+      "license": "CC-BY-4.0",
+      "permitted_use": "facility registry reference",
+      "synthetic": false,
+      "deidentified": true,
+      "relevance": "equipment/inventory facility context",
+      "rows": 10000,
+      "columns": null,
+      "split": null,
+      "file_hash": null,
+      "processing": null,
+      "commercial_ok": true,
+      "redistribute_derivative_ok": true,
+      "status": "candidate"
+    },
+    {
+      "id": "maya-synthetic-generator-v1",
+      "repository": null,
+      "url": null,
+      "license": "Apache-2.0",
+      "permitted_use": "primary training/evaluation corpus",
+      "synthetic": true,
+      "deidentified": true,
+      "relevance": "all non-clinical categories",
+      "rows": "deterministic; see configs/data.yaml",
+      "columns": null,
+      "split": "scenario-level train/validation/test",
+      "file_hash": "computed at generation",
+      "processing": "deterministic generator; exact + near dedup; scenario split",
+      "commercial_ok": true,
+      "redistribute_derivative_ok": true,
+      "status": "active"
+    }
+  ],
+  "excluded": [
+    {
+      "reason": "clinical scope outside Maya boundary",
+      "examples": [
+        "mimic-iv", "eicu", "mortality-prediction datasets", "antibiotics-usage",
+        "readmission datasets", "chest X-ray collections", "RSV/COVID surveillance",
+        "infinite-dataset-hub/HospitalAdmissions", "infinite-dataset-hub/HospitalPatientDischarge"
+      ]
+    }
+  ]
+}
