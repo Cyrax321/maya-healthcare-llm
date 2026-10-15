@@ -5,6 +5,8 @@
 model:
   # Exact repository id. Do not change silently.
   repo_id: "empero-ai/Qwen3.8-4B-Distill"
+  # Name of the fine-tuned Maya release (pushed to Hub as <user>/Maya-Q1).
+  release_name: "Maya-Q1"
   # The model card's own quickstart snippet references "empero-ai/Qwen3.8-4B"
   # without the "-Distill" suffix. That is a documented inconsistency in the
   # card; the actual published repository is the -Distill id above.

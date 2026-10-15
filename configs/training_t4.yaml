@@ -69,6 +69,6 @@ checkpointing:
 hub:
   # Token comes from the HF_TOKEN env var only (Colab Secret). Never hard-code it.
   token_env: "HF_TOKEN"
-  repo_id: null                 # e.g. <your-user>/maya-healthcare-ops
-  results_repo_id: null         # e.g. <your-user>/maya-healthcare-ops-results
+  repo_id: "Maya-Q1"            # full id on push: <your-user>/Maya-Q1
+  results_repo_id: "Maya-Q1-results"
   private: true

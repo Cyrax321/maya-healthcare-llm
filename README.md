@@ -15,6 +15,7 @@ treatment, prescription, triage or autonomous clinical decision-making.
 ## Model and framework
 
 - **Model:** [`empero-ai/Qwen3.8-4B-Distill`](https://huggingface.co/empero-ai/Qwen3.8-4B-Distill) — Apache-2.0, a 4B full-parameter distillation of Qwen3.8 into the Qwen3.5-4B architecture.
+- **Fine-tuned release name:** `Maya-Q1` — the LoRA adapter (and optionally merged weights) are pushed to the Hub as `<your-user>/Maya-Q1`; evaluation artifacts as `<your-user>/Maya-Q1-results`.
 - **Framework:** [Unsloth](https://github.com/unslothai/unsloth). Qwen3.5 requires **Transformers v5**; bf16 LoRA for the 4B fits in ~10 GB VRAM (T4 has 16 GB). QLoRA 4-bit is **not recommended** for Qwen3.5 (larger-than-normal quantization differences), so it is a measured fallback, not a default.
 - The checkpoint is a unified vision-language model; Maya fine-tunes the **text path**. Its linear-attention layers need `flash-linear-attention` and `causal-conv1d` kernels.
 
