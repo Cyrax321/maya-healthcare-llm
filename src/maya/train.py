@@ -313,6 +313,72 @@ def _to_hf_dataset(data: dict[str, list[str]]) -> Any:
     return Dataset.from_dict(data)
 
 
+def _make_sft_config(tcfg: dict[str, Any], output_dir: str, load_in_4bit: bool, resume: bool) -> Any:
+    """Build an SFTConfig compatible with the installed trl version.
+
+    trl renamed ``max_seq_length`` -> ``max_length`` and moved
+    ``dataset_text_field`` from the trainer to the config across releases.
+    """
+    import inspect
+
+    from trl import SFTConfig  # type: ignore
+
+    params = inspect.signature(SFTConfig.__init__).parameters
+    ml_key = "max_length" if "max_length" in params else "max_seq_length"
+
+    kwargs: dict[str, Any] = {
+        ml_key: tcfg["max_seq_length"],
+        "per_device_train_batch_size": tcfg["per_device_train_batch_size"],
+        "gradient_accumulation_steps": tcfg["gradient_accumulation_steps"],
+        "warmup_steps": tcfg["warmup_steps"],
+        "max_steps": tcfg["max_steps"],
+        "learning_rate": tcfg["learning_rate"],
+        "lr_scheduler_type": tcfg["lr_scheduler_type"],
+        "weight_decay": tcfg["weight_decay"],
+        "optim": tcfg["optim"],
+        "logging_steps": tcfg["logging_steps"],
+        "save_steps": tcfg["save_steps"],
+        "eval_strategy": tcfg["eval_strategy"],
+        "eval_steps": tcfg["eval_steps"],
+        "metric_for_best_model": tcfg["metric_for_best_model"],
+        "load_best_model_at_end": tcfg["load_best_model_at_end"],
+        "gradient_checkpointing": True,
+        "seed": tcfg["seed"],
+        "output_dir": output_dir,
+        "bf16": (not load_in_4bit),
+        "fp16": load_in_4bit,
+        "report_to": tcfg.get("report_to", "none"),
+        "resume_from_checkpoint": True if resume else False,
+        "dataset_num_proc": tcfg.get("dataset_num_proc", 1),
+    }
+    if "dataset_text_field" in params:
+        kwargs["dataset_text_field"] = "text"
+    return SFTConfig(**kwargs)
+
+
+def _make_sft_trainer(model: Any, tokenizer: Any, train_ds: Any, val_ds: Any, args: Any) -> Any:
+    """Construct an SFTTrainer against whichever trl version is installed.
+
+    trl renamed ``tokenizer`` -> ``processing_class`` and dropped
+    ``dataset_text_field`` across releases; inspect the signature so this works
+    on both the Unsloth-pinned and the plain-Transformers installs.
+    """
+    import inspect
+
+    from trl import SFTTrainer  # type: ignore
+
+    params = inspect.signature(SFTTrainer.__init__).parameters
+    kwargs: dict[str, Any] = {"model": model, "args": args}
+    kwargs["processing_class" if "processing_class" in params else "tokenizer"] = tokenizer
+    if "train_dataset" in params:
+        kwargs["train_dataset"] = train_ds
+    if "eval_dataset" in params:
+        kwargs["eval_dataset"] = val_ds
+    if "dataset_text_field" in params:
+        kwargs["dataset_text_field"] = "text"
+    return SFTTrainer(**kwargs)
+
+
 def run_training_transformers(
     repo_id: str,
     train_records: Sequence[Record],
@@ -381,40 +447,9 @@ def run_training_transformers(
     train_ds = _to_hf_dataset(prepare_training_dataset(train_records, tokenizer, system_prompt))
     val_ds = _to_hf_dataset(prepare_training_dataset(val_records, tokenizer, system_prompt))
 
-    args = SFTConfig(
-        max_length=tcfg["max_seq_length"],
-        per_device_train_batch_size=tcfg["per_device_train_batch_size"],
-        gradient_accumulation_steps=tcfg["gradient_accumulation_steps"],
-        warmup_steps=tcfg["warmup_steps"],
-        max_steps=tcfg["max_steps"],
-        learning_rate=tcfg["learning_rate"],
-        lr_scheduler_type=tcfg["lr_scheduler_type"],
-        weight_decay=tcfg["weight_decay"],
-        optim=tcfg["optim"],
-        logging_steps=tcfg["logging_steps"],
-        save_steps=tcfg["save_steps"],
-        eval_strategy=tcfg["eval_strategy"],
-        eval_steps=tcfg["eval_steps"],
-        metric_for_best_model=tcfg["metric_for_best_model"],
-        load_best_model_at_end=tcfg["load_best_model_at_end"],
-        gradient_checkpointing=True,
-        seed=tcfg["seed"],
-        output_dir=output_dir,
-        bf16=(not load_in_4bit),
-        fp16=load_in_4bit,
-        report_to=tcfg.get("report_to", "none"),
-        resume_from_checkpoint=True if resume else False,
-        dataset_num_proc=tcfg.get("dataset_num_proc", 1),
-    )
+    args = _make_sft_config(tcfg, output_dir, load_in_4bit, resume)
 
-    trainer = SFTTrainer(
-        model=model,
-        processing_class=tokenizer,
-        train_dataset=train_ds,
-        eval_dataset=val_ds,
-        dataset_text_field="text",
-        args=args,
-    )
+    trainer = _make_sft_trainer(model, tokenizer, train_ds, val_ds, args)
 
     import time
 
