@@ -313,6 +313,133 @@ def _to_hf_dataset(data: dict[str, list[str]]) -> Any:
     return Dataset.from_dict(data)
 
 
+def run_training_transformers(
+    repo_id: str,
+    train_records: Sequence[Record],
+    val_records: Sequence[Record],
+    output_dir: str,
+    config: dict[str, Any],
+    load_in_4bit: bool = True,
+    resume: bool = True,
+) -> TrainingResult:
+    """Plain-Transformers QLoRA training path (no Unsloth).
+
+    Unsloth's patcher forces float32 for Qwen3.5 (T4 has no bf16), which OOMs a
+    16GB T4. Plain Transformers + bitsandbytes 4-bit quantizes the *weights*
+    (~2.5GB) while only the small linear-attention SSM state stays float32, so
+    it fits. LoRA targets all Linear layers via ``target_modules="all-linear"``.
+    """
+    import torch  # type: ignore
+
+    if not torch.cuda.is_available():
+        raise RuntimeError("run_training_transformers requires a CUDA GPU")
+
+    from transformers import (  # type: ignore
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        BitsAndBytesConfig,
+    )
+    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training  # type: ignore
+    from trl import SFTConfig, SFTTrainer  # type: ignore
+
+    from .config import get_system_prompt
+
+    tcfg = config["training_t4"]["training"]
+    lcfg = config["training_t4"]["lora"]
+    system_prompt = get_system_prompt(config)
+
+    tokenizer = AutoTokenizer.from_pretrained(repo_id)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    if load_in_4bit:
+        bnb = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,  # T4 fp16 compute is fine for the LoRA path
+            bnb_4bit_use_double_quant=True,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            repo_id, quantization_config=bnb, device_map="auto"
+        )
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            repo_id, torch_dtype=torch.bfloat16, device_map="auto"
+        )
+
+    peft_config = LoraConfig(
+        r=lcfg["r"],
+        lora_alpha=lcfg["lora_alpha"],
+        lora_dropout=lcfg["lora_dropout"],
+        bias=lcfg["bias"],
+        task_type="CAUSAL_LM",
+        target_modules="all-linear",
+    )
+    model = get_peft_model(model, peft_config)
+
+    train_ds = _to_hf_dataset(prepare_training_dataset(train_records, tokenizer, system_prompt))
+    val_ds = _to_hf_dataset(prepare_training_dataset(val_records, tokenizer, system_prompt))
+
+    args = SFTConfig(
+        max_seq_length=tcfg["max_seq_length"],
+        per_device_train_batch_size=tcfg["per_device_train_batch_size"],
+        gradient_accumulation_steps=tcfg["gradient_accumulation_steps"],
+        warmup_steps=tcfg["warmup_steps"],
+        max_steps=tcfg["max_steps"],
+        learning_rate=tcfg["learning_rate"],
+        lr_scheduler_type=tcfg["lr_scheduler_type"],
+        weight_decay=tcfg["weight_decay"],
+        optim=tcfg["optim"],
+        logging_steps=tcfg["logging_steps"],
+        save_steps=tcfg["save_steps"],
+        eval_strategy=tcfg["eval_strategy"],
+        eval_steps=tcfg["eval_steps"],
+        metric_for_best_model=tcfg["metric_for_best_model"],
+        load_best_model_at_end=tcfg["load_best_model_at_end"],
+        gradient_checkpointing=True,
+        seed=tcfg["seed"],
+        output_dir=output_dir,
+        bf16=(not load_in_4bit),
+        fp16=load_in_4bit,
+        report_to=tcfg.get("report_to", "none"),
+        resume_from_checkpoint=True if resume else False,
+        dataset_num_proc=tcfg.get("dataset_num_proc", 1),
+    )
+
+    trainer = SFTTrainer(
+        model=model,
+        tokenizer=tokenizer,
+        train_dataset=train_ds,
+        eval_dataset=val_ds,
+        args=args,
+    )
+
+    import time
+
+    t0 = time.perf_counter()
+    trainer.train()
+    duration_s = time.perf_counter() - t0
+
+    model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+
+    _write_training_log(
+        output_dir,
+        trainer.state.log_history,
+        trainer.state.global_step,
+        duration_s=duration_s,
+        best_checkpoint=getattr(trainer.state, "best_model_checkpoint", None),
+    )
+
+    return TrainingResult(
+        output_dir=output_dir,
+        final_checkpoint=output_dir,
+        best_checkpoint=getattr(trainer.state, "best_model_checkpoint", None),
+        notes=["plain Transformers QLoRA (no Unsloth)"],
+    )
+
+
 def run_sweep(
     repo_id: str,
     train_records: Sequence[Record],

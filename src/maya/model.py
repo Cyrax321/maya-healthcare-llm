@@ -119,6 +119,48 @@ def load_model_and_tokenizer(
     raise RuntimeError("model load failed via all paths:\n" + "\n".join(errors))
 
 
+def load_transformers_model(
+    repo_id: str = DEFAULT_REPO,
+    load_in_4bit: bool = True,
+    adapter_dir: str | None = None,
+) -> LoadResult:
+    """Plain-Transformers load (no Unsloth) for inference/eval on a T4.
+
+    Unsloth forces float32 for Qwen3.5 on a T4 (no bf16), which OOMs. This loads
+    the model directly with bitsandbytes 4-bit so it fits in 16GB.
+    """
+    import torch  # type: ignore
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig  # type: ignore
+
+    tokenizer = AutoTokenizer.from_pretrained(repo_id)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    if load_in_4bit:
+        bnb = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+        )
+        model = AutoModelForCausalLM.from_pretrained(repo_id, quantization_config=bnb, device_map="auto")
+    else:
+        model = AutoModelForCausalLM.from_pretrained(repo_id, torch_dtype=torch.bfloat16, device_map="auto")
+
+    if adapter_dir:
+        from peft import PeftModel  # type: ignore
+
+        model = PeftModel.from_pretrained(model, adapter_dir)
+
+    return LoadResult(
+        model=model,
+        tokenizer=tokenizer,
+        via_unsloth=False,
+        dtype="4bit" if load_in_4bit else "bf16",
+        notes=["plain Transformers load (no Unsloth)"],
+    )
+
+
 def load_model_with_adapter(
     repo_id: str = DEFAULT_REPO,
     adapter_dir: str | None = None,

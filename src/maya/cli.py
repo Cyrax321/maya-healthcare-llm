@@ -91,12 +91,19 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     experiment_id = args.experiment_id or cfg.new_experiment_id()
     out_dir = cfg.ARTIFACTS_DIR / experiment_id
 
-    result = model_mod.load_model_with_adapter(
-        repo_id=args.repo_id,
-        adapter_dir=args.adapter,
-        max_seq_length=configs["training_t4"]["training"]["max_seq_length"],
-        load_in_4bit=args.load_in_4bit,
-    )
+    if args.load_in_4bit:
+        result = model_mod.load_transformers_model(
+            repo_id=args.repo_id,
+            load_in_4bit=True,
+            adapter_dir=args.adapter,
+        )
+    else:
+        result = model_mod.load_model_with_adapter(
+            repo_id=args.repo_id,
+            adapter_dir=args.adapter,
+            max_seq_length=configs["training_t4"]["training"]["max_seq_length"],
+            load_in_4bit=False,
+        )
     gen_cfg = configs["evaluation"]["generation"]
 
     def generator(messages, **kw):
