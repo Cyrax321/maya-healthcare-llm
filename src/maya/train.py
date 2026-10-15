@@ -382,7 +382,7 @@ def run_training_transformers(
     val_ds = _to_hf_dataset(prepare_training_dataset(val_records, tokenizer, system_prompt))
 
     args = SFTConfig(
-        max_seq_length=tcfg["max_seq_length"],
+        max_length=tcfg["max_seq_length"],
         per_device_train_batch_size=tcfg["per_device_train_batch_size"],
         gradient_accumulation_steps=tcfg["gradient_accumulation_steps"],
         warmup_steps=tcfg["warmup_steps"],
