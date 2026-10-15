@@ -212,7 +212,49 @@ def build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--load", action="store_true", default=False, help="attempt real model load (GPU)")
     pf.set_defaults(func=cmd_preflight)
 
+    ps = sub.add_parser("push")
+    ps.add_argument("--what", choices=["model", "results", "both"], default="both")
+    ps.add_argument("--hub-repo-id", required=True, help="e.g. <user>/maya-healthcare-ops")
+    ps.add_argument("--results-repo-id", default=None, help="separate dataset repo for results")
+    ps.add_argument("--repo-id", default=model_mod_default(), help="base model id (for adapter load)")
+    ps.add_argument("--adapter-dir", default=None, help="path to saved LoRA adapter")
+    ps.add_argument("--experiment-id", default=None)
+    ps.add_argument("--private", action="store_true", default=False)
+    ps.add_argument("--merged", action="store_true", default=False)
+    ps.set_defaults(func=cmd_push)
+
     return p
+
+
+def cmd_push(args: argparse.Namespace) -> int:
+    from . import hub as hub_mod
+
+    if args.what in ("results", "both"):
+        if not args.experiment_id:
+            raise SystemExit("--experiment-id required to push results")
+        results_repo = args.results_repo_id or f"{args.hub_repo_id}-results"
+        hub_mod.push_results(
+            args.experiment_id,
+            results_repo,
+            private=args.private,
+        )
+        print(f"results pushed to {results_repo}")
+
+    if args.what in ("model", "both"):
+        from . import model as model_mod
+
+        if args.adapter_dir:
+            # reload adapter from disk via Unsloth and push
+            result = model_mod.load_model_and_tokenizer(repo_id=args.repo_id, max_seq_length=2048)
+            # load the LoRA weights back onto the base model before pushing
+            result.model.load_adapter(args.adapter_dir, "maya")
+            hub_mod.push_adapter(result.model, result.tokenizer, args.hub_repo_id, private=args.private, merged=args.merged)
+        else:
+            result = model_mod.load_model_and_tokenizer(repo_id=args.repo_id, max_seq_length=2048)
+            hub_mod.push_adapter(result.model, result.tokenizer, args.hub_repo_id, private=args.private, merged=args.merged)
+        print(f"model pushed to {args.hub_repo_id}")
+
+    return 0
 
 
 def cmd_preflight(args: argparse.Namespace) -> int:

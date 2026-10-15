@@ -65,3 +65,10 @@ checkpointing:
   output_dir: "artifacts/{experiment_id}/checkpoints"
   save_adapter: true
   push_to_hub: false
+
+hub:
+  # Token comes from the HF_TOKEN env var only (Colab Secret). Never hard-code it.
+  token_env: "HF_TOKEN"
+  repo_id: null                 # e.g. <your-user>/maya-healthcare-ops
+  results_repo_id: null         # e.g. <your-user>/maya-healthcare-ops-results
+  private: true
