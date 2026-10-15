@@ -143,7 +143,9 @@ def load_transformers_model(
             bnb_4bit_compute_dtype=torch.float16,
             bnb_4bit_use_double_quant=True,
         )
-        model = AutoModelForCausalLM.from_pretrained(repo_id, quantization_config=bnb, device_map="auto")
+        model = AutoModelForCausalLM.from_pretrained(
+            repo_id, quantization_config=bnb, device_map="auto", dtype=torch.float16
+        )
     else:
         model = AutoModelForCausalLM.from_pretrained(repo_id, torch_dtype=torch.bfloat16, device_map="auto")
 

@@ -427,7 +427,7 @@ def run_training_transformers(
             bnb_4bit_use_double_quant=True,
         )
         model = AutoModelForCausalLM.from_pretrained(
-            repo_id, quantization_config=bnb, device_map="auto"
+            repo_id, quantization_config=bnb, device_map="auto", dtype=torch.float16
         )
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
     else:
