@@ -374,8 +374,9 @@ def _make_sft_trainer(model: Any, tokenizer: Any, train_ds: Any, val_ds: Any, ar
         kwargs["train_dataset"] = train_ds
     if "eval_dataset" in params:
         kwargs["eval_dataset"] = val_ds
-    if "dataset_text_field" in params:
-        kwargs["dataset_text_field"] = "text"
+    # dataset_text_field is NOT passed to the trainer: it moved into SFTConfig in
+    # newer trl, and passing it here raises "unexpected keyword argument" even
+    # though the deprecated name still appears in the signature.
     return SFTTrainer(**kwargs)
 
 
