@@ -71,11 +71,13 @@ def run_preflight(repo_id: str, attempt_load: bool = False, data_dir: str = "dat
     us_v = _version("unsloth")
     checks.append(Check("unsloth", not str(us_v).startswith("IMPORT FAILED"), str(us_v)))
 
-    # Qwen3.5 linear-attention kernels
+    # Qwen3.5 linear-attention kernels. Optional for the Unsloth path: Unsloth
+    # ships its own Mamba/DeltaNet Triton kernels. Only plain-Transformers/vLLM
+    # inference needs flash-linear-attention + causal-conv1d.
     fla = _version("flash_linear_attention")
     cc1 = _version("causal_conv1d")
-    checks.append(Check("flash-linear-attention kernel", not str(fla).startswith("IMPORT FAILED"), str(fla)))
-    checks.append(Check("causal-conv1d kernel", not str(cc1).startswith("IMPORT FAILED"), str(cc1)))
+    checks.append(Check("flash-linear-attention kernel (optional)", not str(fla).startswith("IMPORT FAILED"), str(fla), required=False))
+    checks.append(Check("causal-conv1d kernel (optional)", not str(cc1).startswith("IMPORT FAILED"), str(cc1), required=False))
 
     # data prepared
     import os

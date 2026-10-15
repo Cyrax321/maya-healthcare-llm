@@ -30,10 +30,12 @@ peft>=0.13.0
 trl>=0.12.0
 bitsandbytes>=0.44.0
 
-# Qwen3.5 linear-attention kernels (gated DeltaNet). Required at inference and
-# training, otherwise the linear-attention layers fall back to slow PyTorch ops.
-flash-linear-attention
-causal-conv1d
+# Qwen3.5 linear-attention kernels (gated DeltaNet). OPTIONAL for the Unsloth
+# path (Unsloth ships its own Mamba/DeltaNet Triton kernels). Only needed for
+# non-Unsloth inference (plain transformers / vLLM). Install from source:
+#   pip install flash-linear-attention causal-conv1d
+# flash-linear-attention
+# causal-conv1d
 
 # --- Dev ---
 pytest==8.3.3
