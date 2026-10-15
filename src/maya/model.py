@@ -119,6 +119,26 @@ def load_model_and_tokenizer(
     raise RuntimeError("model load failed via all paths:\n" + "\n".join(errors))
 
 
+def load_model_with_adapter(
+    repo_id: str = DEFAULT_REPO,
+    adapter_dir: str | None = None,
+    max_seq_length: int = 2048,
+    load_in_4bit: bool = False,
+) -> LoadResult:
+    """Load the base model and apply a saved LoRA adapter for inference."""
+    result = load_model_and_tokenizer(repo_id, max_seq_length, load_in_4bit)
+    if not adapter_dir:
+        return result
+    try:
+        from peft import PeftModel  # type: ignore
+
+        result.model = PeftModel.from_pretrained(result.model, adapter_dir)
+        result.notes.append(f"adapter loaded from {adapter_dir}")
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"failed to apply adapter {adapter_dir}: {type(exc).__name__}: {exc}")
+    return result
+
+
 def apply_chat_template(
     tokenizer: Any,
     messages: Sequence[dict[str, str]],

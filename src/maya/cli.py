@@ -91,8 +91,9 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     experiment_id = args.experiment_id or cfg.new_experiment_id()
     out_dir = cfg.ARTIFACTS_DIR / experiment_id
 
-    result = model_mod.load_model_and_tokenizer(
+    result = model_mod.load_model_with_adapter(
         repo_id=args.repo_id,
+        adapter_dir=args.adapter,
         max_seq_length=configs["training_t4"]["training"]["max_seq_length"],
         load_in_4bit=args.load_in_4bit,
     )
@@ -130,7 +131,7 @@ def cmd_train(args: argparse.Namespace) -> int:
     train_records = data_mod.load_processed_split(Path(args.data_out), "train")
     val_records = data_mod.load_processed_split(Path(args.data_out), "validation")
     experiment_id = args.experiment_id or cfg.new_experiment_id()
-    out_dir = cfg.ARTIFACTS_DIR / experiment_id / "checkpoints"
+    out_dir = args.output_dir or str(cfg.ARTIFACTS_DIR / experiment_id / "checkpoints")
 
     result = train_mod.run_training(
         repo_id=args.repo_id,
@@ -188,6 +189,7 @@ def build_parser() -> argparse.ArgumentParser:
     tr.add_argument("--repo-id", default=model_mod_default())
     tr.add_argument("--data-out", default="data/processed")
     tr.add_argument("--experiment-id", default=None)
+    tr.add_argument("--output-dir", default=None, help="where to save the adapter (default artifacts/<id>/checkpoints)")
     tr.add_argument("--resume", action="store_true", default=True)
     tr.set_defaults(func=cmd_train)
 
@@ -243,15 +245,12 @@ def cmd_push(args: argparse.Namespace) -> int:
     if args.what in ("model", "both"):
         from . import model as model_mod
 
-        if args.adapter_dir:
-            # reload adapter from disk via Unsloth and push
-            result = model_mod.load_model_and_tokenizer(repo_id=args.repo_id, max_seq_length=2048)
-            # load the LoRA weights back onto the base model before pushing
-            result.model.load_adapter(args.adapter_dir, "maya")
-            hub_mod.push_adapter(result.model, result.tokenizer, args.hub_repo_id, private=args.private, merged=args.merged)
-        else:
-            result = model_mod.load_model_and_tokenizer(repo_id=args.repo_id, max_seq_length=2048)
-            hub_mod.push_adapter(result.model, result.tokenizer, args.hub_repo_id, private=args.private, merged=args.merged)
+        result = model_mod.load_model_with_adapter(
+            repo_id=args.repo_id,
+            adapter_dir=args.adapter_dir,
+            max_seq_length=2048,
+        )
+        hub_mod.push_adapter(result.model, result.tokenizer, args.hub_repo_id, private=args.private, merged=args.merged)
         print(f"model pushed to {args.hub_repo_id}")
 
     return 0
