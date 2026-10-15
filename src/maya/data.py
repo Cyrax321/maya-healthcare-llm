@@ -950,8 +950,7 @@ def prepare_dataset(
     safety = generate_safety_cases(seed)
     split.test = list(split.test) + safety
 
-    if out_dir is None:
-        out_dir = Path("data/processed")
+    out_dir = Path(out_dir) if out_dir is not None else Path("data/processed")
     out_dir.mkdir(parents=True, exist_ok=True)
     write_jsonl(split.train, out_dir / "train.jsonl")
     write_jsonl(split.validation, out_dir / "validation.jsonl")
@@ -980,8 +979,8 @@ def prepare_dataset(
     return manifest
 
 
-def load_processed_split(out_dir: Path, split: str) -> list[Record]:
-    return read_jsonl(out_dir / f"{split}.jsonl")
+def load_processed_split(out_dir: Path | str, split: str) -> list[Record]:
+    return read_jsonl(Path(out_dir) / f"{split}.jsonl")
 
 
 def iter_messages_as_text(records: Iterable[Record]) -> Iterator[str]:

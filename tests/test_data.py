@@ -94,3 +94,14 @@ def test_prepare_dataset_appends_safety_to_test_only():
         train = load_processed_split(Path(tmp), "train")
         assert any(r.category == "safety" for r in test)
         assert all(r.category != "safety" for r in train)
+
+
+def test_prepare_dataset_accepts_string_out_dir():
+    import tempfile
+
+    from maya.data import load_processed_split
+
+    with tempfile.TemporaryDirectory() as tmp:
+        prepare_dataset(seed=5, examples_per_category=10, out_dir=tmp)  # str, not Path
+        test = load_processed_split(tmp, "test")  # str, not Path
+        assert len(test) > 0
