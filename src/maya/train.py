@@ -159,7 +159,8 @@ def run_training(
     prec = config["training_t4"]["precision"]
     system_prompt = get_system_prompt(config)
 
-    load_in_4bit = prec.get("preferred") != "fp16_lora"
+    preferred = prec.get("preferred", "fp16_lora")
+    load_in_4bit = preferred == "q4_qlora"
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=repo_id,
         max_seq_length=tcfg["max_seq_length"],

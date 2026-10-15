@@ -6,11 +6,17 @@
 # or checkpoint selection.
 
 precision:
-  # Priority order from the spec. First attempt is bf16 LoRA (fits in 10GB of
-  # the T4's 16GB). QLoRA is a measured fallback only, because Unsloth warns
-  # about quantization differences for Qwen3.5.
-  preferred: "fp16_lora"       # Unsloth load_in_16bit=True (bf16/fp16)
-  fallback: "q4_qlora"         # only after the preferred config fails with OOM
+  # T4 hard constraint (discovered at the smoke train):
+  #   - Tesla T4 (Turing) has NO bf16 support (Unsloth banner: "Bfloat16 = FALSE").
+  #   - Unsloth rejects fp16 for qwen3_5 (the Gated-DeltaNet linear-attention
+  #     SSM state is float32), so it falls back to float32 training.
+  #   - float32 base weights ~= 18GB > 16GB T4 -> CUDA OOM.
+  #   - Therefore QLoRA (4-bit base weights ~2.5GB) is the ONLY fit on a T4.
+  #     Unsloth warns QLoRA on Qwen3.5 has larger quantization differences.
+  #   - bf16 LoRA (10GB, the original first choice) works on bf16-capable GPUs
+  #     (A100/L4/L40), NOT on the T4.
+  preferred: "q4_qlora"
+  fallback: "fp16_lora"        # bf16 LoRA on a bf16-capable GPU (A100/L4/L40)
   full_finetune: false          # never full-parameter fine-tune on a T4
 
 lora:
