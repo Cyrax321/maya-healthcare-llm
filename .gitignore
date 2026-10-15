@@ -1,0 +1,68 @@
+# ---- Secrets / credentials ----
+.env
+.env.*
+*.key
+*.pem
+service-account*.json
+credentials.json
+token.json
+gcloud-*.json
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- Notebooks ----
+.ipynb_checkpoints/
+# notebooks/maya_colab.ipynb is intentionally committed (Colab entrypoint)
+
+# ---- Datasets (never commit raw/processed data) ----
+data/processed/
+data/raw/
+data/*.json
+data/*.jsonl
+data/*.csv
+data/*.parquet
+!data/source_manifest.example.json
+
+# ---- Model weights, adapters, checkpoints ----
+models/
+adapters/
+checkpoints/
+outputs/
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+
+# ---- Generated artifacts (reproducible, not source) ----
+artifacts/*
+!artifacts/README.md
+
+# ---- Hugging Face cache ----
+.cache/
+~/.cache/huggingface/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# ---- Logs ----
+*.log
+wandb/
+runs/

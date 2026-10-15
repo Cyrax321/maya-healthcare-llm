@@ -1,0 +1,43 @@
+# Maya healthcare-LLM pinned runtime dependencies.
+# Python 3.10 (Colab T4 default).
+#
+# GPU training stack is intentionally separated below the "---- GPU ----" marker
+# because Unsloth must be installed from git and requires a CUDA runtime. The
+# CPU-only test/smoke path only needs the packages above that marker.
+
+# --- Core (CPU-safe, used by data/audit/metrics/report/tests) ---
+pyyaml==6.0.2
+numpy==1.26.4
+pandas==2.2.2
+matplotlib==3.9.2
+scipy==1.13.1
+scikit-learn==1.5.2
+tqdm==4.66.5
+requests==2.32.3
+datasets==3.0.1
+sentencepiece==0.2.0
+rouge-score==0.1.2
+nltk==3.9.1
+
+# --- GPU / training stack (installed on Colab only) ---
+# Unsloth pins its own transformers/torch/trl/peft. Install exactly:
+#   pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+#   pip install --no-deps unsloth_zoo
+# then:
+#   pip install --upgrade transformers  # Unsloth uses transformers v5 by default
+#
+# Minimum known-good versions for the Qwen3.5 family (verified against
+# https://unsloth.ai/docs/models/qwen3.5/fine-tune):
+transformers>=5.0
+accelerate>=0.34.0
+peft>=0.13.0
+trl>=0.12.0
+bitsandbytes>=0.44.0
+
+# Qwen3.5 linear-attention kernels (gated DeltaNet). Required at inference and
+# training, otherwise the linear-attention layers fall back to slow PyTorch ops.
+flash-linear-attention
+causal-conv1d
+
+# --- Dev ---
+pytest==8.3.3
